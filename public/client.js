@@ -1,123 +1,30 @@
 "use strict";
 
-(function () {
-
-    var socket, //Socket.IO client
-        buttons, //Button elements
-        message, //Message element
-        score, //Score element
-        points = { //Game points
-            draw: 0,
-            win: 0,
-            lose: 0
-        };
-
-    /**
-     * Disable all button
-     */
-    function disableButtons() {
-        for (var i = 0; i < buttons.length; i++) {
-            buttons[i].setAttribute("disabled", "disabled");
-        }
-    }
-
-    /**
-     * Enable all button
-     */
-    function enableButtons() {
-        for (var i = 0; i < buttons.length; i++) {
-            buttons[i].removeAttribute("disabled");
-        }
-    }
-
-    /**
-     * Set message text
-     * @param {string} text
-     */
-    function setMessage(text) {
-        message.innerHTML = text;
-    }
-
-    /**
-     * Set score text
-     * @param {string} text
-     */
-    function displayScore(text) {
-        score.innerHTML = [
-            "<h2>" + text + "</h2>",
-            "Won: " + points.win,
-            "Lost: " + points.lose,
-            "Draw: " + points.draw
-        ].join("<br>");
-    }
-
-    /**
-     * Binde Socket.IO and button events
-     */
-    function bind() {
-
-        socket.on("start", function () {
-            enableButtons();
-            setMessage("Round " + (points.win + points.lose + points.draw + 1));
-        });
-
-        socket.on("win", function () {
-            points.win++;
-            displayScore("You win!");
-        });
-
-        socket.on("lose", function () {
-            points.lose++;
-            displayScore("You lose!");
-        });
-
-        socket.on("draw", function () {
-            points.draw++;
-            displayScore("Draw!");
-        });
-
-        socket.on("end", function () {
-            disableButtons();
-            setMessage("Waiting for opponent...");
-        });
-
-        socket.on("connect", function () {
-            disableButtons();
-            setMessage("Waiting for opponent...");
-        });
-
-        socket.on("disconnect", function () {
-            disableButtons();
-            setMessage("Connection lost!");
-        });
-
-        socket.on("error", function () {
-            disableButtons();
-            setMessage("Connection error!");
-        });
-
-        for (var i = 0; i < buttons.length; i++) {
-            (function (button, guess) {
-                button.addEventListener("click", function (e) {
-                    disableButtons();
-                    socket.emit("guess", guess);
-                }, false);
-            })(buttons[i], i + 1);
-        }
-    }
-
-    /**
-     * Client module init
-     */
-    function init() {
-        socket = io({ upgrade: false, transports: ["websocket"] });
-        buttons = document.getElementsByTagName("button");
-        message = document.getElementById("message");
-        score = document.getElementById("score");
-        disableButtons();
-        bind();
-    }
-
-    window.addEventListener("load", init, false);
-
-})();
+var socket = io(), blaster = document.querySelector("#mega"), ldr = document.querySelector("#leaderboard ol"), msgs = document.querySelector("#messages ul")
+socket.on("newWord", function (word) {
+  blaster.placeholder = word
+  blaster.value = word
+  blaster.focus()
+  blaster.setSelectionRange(word.length, word.length)
+})
+function overflow(lstslctr, lmt) {
+  while (document.querySelectorAll(lstslctr+" > li").length > lmt) document.querySelector(lstslctr+" > li").remove()
+}
+socket.on("message", function (msg) {
+  let msgli = document.createElement("li")
+  msgli.textContent = msg
+  msgs.appendChild(msgli)
+  overflow("#messages ul", 10)
+})
+socket.on("leaderboard", function (scores) {
+  while (ldr.firstChild) ldr.removeChild(ldr.firstChild)
+  for (let score of scores) {
+    let scoreli = document.createElement("li")
+    scoreli.textContent = score[0] + ": " + score[1]
+    ldr.appendChild(scoreli)
+  }
+})
+blaster.addEventListener("input", function() {
+  socket.emit("try", blaster.value)
+})
+socket.emit("register", prompt("Choose your username", ""))
